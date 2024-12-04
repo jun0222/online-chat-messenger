@@ -20,14 +20,18 @@ port = 9050
 server_address = '0.0.0.0'
 server_port = 9001
 
-# ユーザー名のバイト数 + ユーザー名 + 実際のメッセージ
-message = f"{username_len}".encode('utf-8') + username + b'Hello, World!'
+# 実際のメッセージ
+chat_message = 'Hello, World!'.encode('utf-8')
+
+# メッセージの構成
+# 1バイトで username_len を送信するために bytes([username_len]) を使用
+message = bytes([username_len]) + username + chat_message
 
 # 空の文字列も0.0.0.0として使用できる
-sock.bind((address,port))
+sock.bind((address, port))
 
 try:
-  print('送信: {}'.format(message.decode('utf-8')))
+  print('送信データ: {}'.format(message))
 
   # サーバへのデータ送信
   sent = sock.sendto(message, (server_address, server_port))
