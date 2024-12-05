@@ -1,4 +1,6 @@
 import socket
+import time
+import threading
 
 # AF_INETを使用し、UDPソケットを作成
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -9,8 +11,26 @@ print('サーバー起動。ポート番号: {}'.format(server_port))
 # ソケットを特殊なアドレス0.0.0.0とポート9001に紐付け
 sock.bind((server_address, server_port))
 
+# 接続中のクライアントを保存
+clients = {}
+HEARTBEAT_INTERVAL = 5
+TIMEOUT = 10
+
+def check_clients():
+   
+   # クライアントの最終接続時刻を確認し、タイムアウトしたクライアントを削除
+   for address, last_seen in list(clients.items()):
+      
+      # クライアント最終接続が現在時刻,HEARTBEAT_INTERVALよりも前の場合、クライアントを削除
+      if last_seen + TIMEOUT < time.time():
+         print('クライアントがタイムアウトしました: {}'.format(address))
+         del clients[address]
+
+# クライアントの接続状態をチェックするスレッド
+threading.Thread(target=check_clients, daemon=True).start()
+
 while True:
-   print('メッセージ返信待機中...')
+   print(f"メッセージ返信待機中...{server_address}:{server_port}")
 
    # クライアントからのデータ受信
    data, address = sock.recvfrom(4096)
@@ -29,7 +49,12 @@ while True:
    chat_message = data[username_len + 1:]
    print('メッセージ: {}'.format(chat_message.decode('utf-8')))
 
-   # クライアントへのデータ送信
-   if data:
-      sent = sock.sendto(data, address)
-      print('メッセージを送信 {} バイト:  {}'.format(sent, address))
+   # クライアントの最終接続時刻を更新
+   clients[address] = time.time()
+
+   # 受信したメッセージを他のクライアントに送信
+   for client_address in clients:
+      if client_address != address:
+         print('クライアントにメッセージを送信: {}'.format(client_address))
+         sock.sendto(data, client_address)
+         print('送信完了')
