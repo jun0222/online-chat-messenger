@@ -14,7 +14,7 @@ if username_len > 255:
 # AF_INETを使用し、UDPソケットを作成
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 address = ''
-port = 9050
+port = int(input('ポート番号を入力してください(ex.9050): '))
 
 # サーバ側のアドレスとポート
 server_address = '0.0.0.0'
