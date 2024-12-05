@@ -20,31 +20,30 @@ port = int(input('ポート番号を入力してください(ex.9050): '))
 server_address = '0.0.0.0'
 server_port = 9001
 
-# 実際のメッセージ
-chat_message = 'Hello, World!'.encode('utf-8')
-
-# メッセージの構成
-# 1バイトで username_len を送信するために bytes([username_len]) を使用
-message = bytes([username_len]) + username + chat_message
-
 # 空の文字列も0.0.0.0として使用できる
 sock.bind((address, port))
 
 try:
-  print('送信データ: {}'.format(message))
+    while True:
+        # 実際のメッセージ
+        chat_message = input('メッセージを入力してください: ').encode('utf-8')
 
-  # サーバへのデータ送信
-  sent = sock.sendto(message, (server_address, server_port))
-  print('送信 {} バイト'.format(sent))
+        # 1バイトで username_len を送信するために bytes([username_len]) を使用
+        message = bytes([username_len]) + username + chat_message
 
-  # 応答を受信
-  print('サーバからの応答を待っています...')
+        print('送信データ: {}'.format(message))
 
-  # サーバからのデータ受信
-  data, server = sock.recvfrom(4096)
-  print('受信しました: {}'.format(data.decode('utf-8')))
+        # サーバへのデータ送信
+        sent = sock.sendto(message, (server_address, server_port))
+        print('送信 {} バイト'.format(sent))
 
+        # 応答を受信
+        print('サーバからの応答を待っています...')
+
+        # サーバからのデータ受信
+        data, server = sock.recvfrom(4096)
+        print('受信しました: {}'.format(data.decode('utf-8')))
 
 finally:
-  print('接続終了')
-  sock.close()
+    sock.close()
+    print('接続終了')
