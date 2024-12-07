@@ -12,10 +12,23 @@ if username_len > 255:
     print('ユーザー名が長すぎます')
     exit()
 
+def find_available_port(start_port):
+    port = start_port
+    while True:
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.bind(('', port))
+            sock.close()
+            return port
+        except OSError:
+            port += 1
+
 # AF_INETを使用し、UDPソケットを作成
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 address = ''
-port = int(input('ポート番号を入力してください(ex.9050): '))
+initial_port = 9050
+port = find_available_port(initial_port)
+print('使用するポート番号: {}'.format(port))
 
 # サーバ側のアドレスとポート
 server_address = '0.0.0.0'
@@ -30,7 +43,7 @@ def receive_messages():
         # サーバからのデータ受信
         data, server = sock.recvfrom(4096)
         print('受信しました: {}'.format(data.decode('utf-8')))
-        print('メッセージを入力してください: ')
+        print('メッセージを入力してください: ', sep="")
 thread = threading.Thread(target=receive_messages, daemon=True)
 thread.start()
 
