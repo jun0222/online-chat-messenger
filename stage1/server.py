@@ -24,6 +24,8 @@ def check_clients():
             if current_time - last_seen > TIMEOUT:
                 print('クライアントがタイムアウトしました: {}'.format(address))
                 del clients[address]
+                # タイムアウト通知を送信
+                sock.sendto(b'TIMEOUT', address)
         time.sleep(HEARTBEAT_INTERVAL)
 
 # クライアントの接続状態をチェックするスレッド

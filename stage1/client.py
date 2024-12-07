@@ -23,12 +23,14 @@ def find_available_port(start_port):
         except OSError:
             port += 1
 
-# AF_INETを使用し、UDPソケットを作成
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-address = ''
+# 初期ポート番号を設定
 initial_port = 9050
 port = find_available_port(initial_port)
 print('使用するポート番号: {}'.format(port))
+
+# AF_INETを使用し、UDPソケットを作成
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+address = ''
 
 # サーバ側のアドレスとポート
 server_address = '0.0.0.0'
@@ -42,8 +44,14 @@ def receive_messages():
     while True:
         # サーバからのデータ受信
         data, server = sock.recvfrom(4096)
+        if data == b'TIMEOUT':
+            print('タイムアウトしました。接続を終了します。')
+            break
         print('受信しました: {}'.format(data.decode('utf-8')))
         print('メッセージを入力してください: ', sep="")
+    sock.close()
+    exit()
+
 thread = threading.Thread(target=receive_messages, daemon=True)
 thread.start()
 
