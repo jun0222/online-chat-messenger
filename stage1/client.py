@@ -47,6 +47,9 @@ def receive_messages():
         if data == b'TIMEOUT':
             print('タイムアウトしました。接続を終了します。')
             break
+        if data == b'INVALID_DATA_DISCONNECT':
+            print('不正なデータを受信しました。接続を終了します。')
+            break
         print('受信しました: {}'.format(data.decode('utf-8')))
         print('メッセージを入力してください: ', sep="")
     sock.close()
