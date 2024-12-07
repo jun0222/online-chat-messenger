@@ -1,4 +1,5 @@
 import socket
+import threading
 
 # ユーザー名を入力させる
 username = input('ユーザー名を入力してください: ').encode('utf-8')
@@ -23,6 +24,16 @@ server_port = 9001
 # 空の文字列も0.0.0.0として使用できる
 sock.bind((address, port))
 
+# サーバからのデータ受信スレッド
+def receive_messages():
+    while True:
+        # サーバからのデータ受信
+        data, server = sock.recvfrom(4096)
+        print('受信しました: {}'.format(data.decode('utf-8')))
+        print('メッセージを入力してください: ')
+thread = threading.Thread(target=receive_messages, daemon=True)
+thread.start()
+
 try:
     while True:
         # 実際のメッセージ
@@ -34,15 +45,9 @@ try:
         print('送信データ: {}'.format(message))
 
         # サーバへのデータ送信
+        # 受信はスレッドで行うので、こちらは送信のみ
         sent = sock.sendto(message, (server_address, server_port))
         print('送信 {} バイト'.format(sent))
-
-        # 応答を受信
-        print('サーバからの応答を待っています...')
-
-        # サーバからのデータ受信
-        data, server = sock.recvfrom(4096)
-        print('受信しました: {}'.format(data.decode('utf-8')))
 
 finally:
     sock.close()
