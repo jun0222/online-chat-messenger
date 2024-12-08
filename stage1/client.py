@@ -7,7 +7,7 @@ username = input('ユーザー名を入力してください: ').encode('utf-8')
 # ユーザー名のバイト数を取得
 username_len = len(username)
 
-print('ユーザー名のバイト数: {}'.format(username_len))
+print(f'ユーザー名のバイト数: {username_len}')
 if username_len > 255:
     print('ユーザー名が長すぎます')
     exit()
@@ -26,7 +26,7 @@ def find_available_port(start_port):
 # 初期ポート番号を設定
 initial_port = 9050
 port = find_available_port(initial_port)
-print('使用するポート番号: {}'.format(port))
+print(f'使用するポート番号: {port}')
 
 # AF_INETを使用し、UDPソケットを作成
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -45,18 +45,21 @@ def receive_messages():
         # サーバからのデータ受信
         data, server = sock.recvfrom(4096)
         if data == b'TIMEOUT':
-            print('タイムアウトしました。接続を終了します。')
+            print('\nタイムアウトしました。接続を終了します。')
             break
         if data == b'INVALID_DATA_DISCONNECT':
-            print('不正なデータを受信しました。接続を終了します。')
+            print('\n不正なデータを受信しました。接続を終了します。')
             break
-        print('受信しました: {}'.format(data.decode('utf-8')))
+        print(f'\n受信しました: {data.decode("utf-8")}')
         print('メッセージを入力してください: ', sep="")
     sock.close()
     exit()
 
 thread = threading.Thread(target=receive_messages, daemon=True)
 thread.start()
+
+MAX_SEND_FAILURES = 3
+send_failures = 0
 
 try:
     while True:
@@ -66,12 +69,19 @@ try:
         # 1バイトで username_len を送信するために bytes([username_len]) を使用
         message = bytes([username_len]) + username + chat_message
 
-        print('送信データ: {}'.format(message))
+        print(f'\n送信データ: {message}')
 
-        # サーバへのデータ送信
-        # 受信はスレッドで行うので、こちらは送信のみ
-        sent = sock.sendto(message, (server_address, server_port))
-        print('送信 {} バイト'.format(sent))
+        try:
+            # サーバへのデータ送信
+            sent = sock.sendto(message, (server_address, server_port))
+            print(f'送信 {sent} バイト')
+            send_failures = 0  # 送信成功時に失敗カウントをリセット
+        except Exception as e:
+            print(f'送信に失敗しました: {e}')
+            send_failures += 1
+            if send_failures >= MAX_SEND_FAILURES:
+                print('送信失敗が続いたため、接続を終了します。')
+                break
 
 finally:
     sock.close()

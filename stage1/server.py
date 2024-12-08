@@ -6,7 +6,7 @@ import threading
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_address = '0.0.0.0'
 server_port = 9001
-print('サーバー起動。ポート番号: {}'.format(server_port))
+print(f'サーバー起動。ポート番号: {server_port}')
 
 # ソケットを特殊なアドレス0.0.0.0とポート9001に紐付け
 sock.bind((server_address, server_port))
@@ -24,7 +24,7 @@ def check_clients():
         current_time = time.time()
         for address, last_seen in list(clients.items()):
             if current_time - last_seen > TIMEOUT:
-                print('クライアントがタイムアウトしました: {}'.format(address))
+                print(f'タイムアウト: {address}')
                 del clients[address]
                 if address in invalid_data_count:
                     del invalid_data_count[address]
@@ -36,13 +36,13 @@ def check_clients():
 threading.Thread(target=check_clients, daemon=True).start()
 
 while True:
-    print(f"メッセージ返信待機中...{server_address}:{server_port}")
+    print(f"\nメッセージ返信待機中... {server_address}:{server_port}")
 
     try:
         # UDPのためクライアント側で到達確認は不可、そのためサーバ側でパケットロスでデータ不正を検知
         # クライアントからのデータ受信
         data, address = sock.recvfrom(4096)
-        print('メッセージを受信 {} バイト:  {}'.format(len(data), address))
+        print(f'\nメッセージを受信 {len(data)} バイト: {address}')
 
         # データ形式の検証
         if len(data) < 2:
@@ -67,7 +67,7 @@ while True:
         # 受信したメッセージを他のクライアントに送信
         for client_address in clients:
             if client_address != address:
-                print('クライアントにメッセージを送信: {}'.format(client_address))
+                print(f'クライアントにメッセージを送信: {client_address}')
                 sock.sendto(data, client_address)
                 print('送信完了')
 
