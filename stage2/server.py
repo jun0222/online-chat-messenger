@@ -51,7 +51,6 @@ while True:
     print(f"\nメッセージ返信待機中... {server_address}:{server_port}")
 
     try:
-        # UDPのためクライアント側で到達確認は不可、そのためサーバ側でパケットロスでデータ不正を検知
         # クライアントからのデータ受信
         data, address = sock.recvfrom(4096)
         print(f'\nメッセージを受信 {len(data)} バイト: {address}')
@@ -67,10 +66,16 @@ while True:
 
         # username_lenの次のバイトからユーザー名を取得
         username = data[1:username_len + 1].decode('utf-8')
-        chat_message = data[username_len + 1:].decode('utf-8')
+        token = data[username_len + 1:].decode('utf-8')
+
+        if token not in chat_rooms:
+            # トークンが無効な場合、ルーム作成を促す
+            new_token = create_chat_room()
+            sock.sendto(f'無効なトークンです。新しいチャットルームを作成しました。トークン: {new_token}'.encode('utf-8'), address)
+            continue
 
         print(f'ユーザー名: {username}')
-        print(f'メッセージ: {chat_message}')
+        print(f'トークン: {token}')
 
         # クライアントの最終接続時刻を更新
         clients[address] = time.time()
@@ -95,5 +100,3 @@ while True:
                 del clients[address]
             if address in invalid_data_count:
                 del invalid_data_count[address]
-            # 不正データによる切断通知
-            sock.sendto(b'INVALID_DATA_DISCONNECT', address)
