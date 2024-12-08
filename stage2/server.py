@@ -69,10 +69,11 @@ while True:
         token = data[username_len + 1:].decode('utf-8')
 
         if token not in chat_rooms:
-            # トークンが無効な場合、ルーム作成を促す
+            # トークンが無効な場合、新しいチャットルームを作成
             new_token = create_chat_room()
+            chat_rooms[new_token].append(address)
             sock.sendto(f'無効なトークンです。新しいチャットルームを作成しました。トークン: {new_token}'.encode('utf-8'), address)
-            continue
+            token = new_token  # 新しいトークンを使用してチャットを続ける
 
         print(f'ユーザー名: {username}')
         print(f'トークン: {token}')
