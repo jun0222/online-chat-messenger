@@ -18,6 +18,18 @@ HEARTBEAT_INTERVAL = 5
 TIMEOUT = 10
 INVALID_DATA_THRESHOLD = 3  # 不正データの許容回数
 
+# チャットルームの情報
+chat_rooms = {}
+
+# チャットルームを作成し、トークンを返す
+def create_chat_room():
+    token = str(time.time())
+    chat_rooms[token] = []
+    # トークンとルーム名を紐付け
+    room_name = f'room_{len(chat_rooms)}'
+    chat_rooms[token].append(room_name)
+    return token
+
 def check_clients():
     while True:
         # クライアントの最終接続時刻を確認し、タイムアウトしたクライアントを削除
