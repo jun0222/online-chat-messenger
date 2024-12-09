@@ -69,15 +69,18 @@ while True:
         username = data[1:username_len + 1].decode('utf-8')
         token = data[username_len + 1:].decode('utf-8')
 
-        if token not in chat_rooms:
-            # トークンが無効な場合、新しいチャットルームを作成
-            new_token = create_chat_room()
-            chat_rooms[new_token].append(address)
-            sock.sendto(f'無効なトークンです。新しいチャットルームを作成しました。トークン: {new_token}'.encode('utf-8'), address)
-            token = new_token  # 新しいトークンを使用してチャットを続ける
-
-        print(f'ユーザー名: {username}')
-        print(f'トークン: {token}')
+        if address not in clients:
+            # 初回接続時にトークンをチェック
+            if token not in chat_rooms:
+                # トークンが無効な場合、新しいチャットルームを作成
+                new_token = create_chat_room()
+                chat_rooms[new_token].append(address)
+                sock.sendto(f'無効なトークンです。新しいチャットルームを作成しました。トークン: {new_token}'.encode('utf-8'), address)
+                token = new_token  # 新しいトークンを使用してチャットを続ける
+            else:
+                chat_rooms[token].append(address)
+            print(f'ユーザー名: {username}')
+            print(f'トークン: {token}')
 
         # クライアントの最終接続時刻を更新
         clients[address] = time.time()
