@@ -1,5 +1,6 @@
 import socket
 import threading
+import os
 
 # サーバーの設定
 HOST = '127.0.0.1'
@@ -13,6 +14,10 @@ clients = {}  # {client_socket: (address, room_name)}
 def handle_client(client_socket):
     try:
         while True:
+            # チャットルームとクライアントを全てprint
+            print("現在のチャットルーム:", {room: [c.getpeername() for c in clients if clients[c][1] == room] for room in chat_rooms})
+            print("現在のクライアント:", {c.getpeername(): info for c, info in clients.items()})
+            
             # クライアントからメッセージを受信
             data = client_socket.recv(1024).decode('utf-8').strip()
             if not data:
@@ -52,7 +57,22 @@ def handle_client(client_socket):
         client_socket.close()
 
 
+def force_release_port(port):
+    """ポートを強制的に解放"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as temp_socket:
+        try:
+            temp_socket.bind((HOST, port))
+        except OSError:
+            print(f"ポート {port} を使用中の接続を解放します...")
+            os.system(f"fuser -k {port}/tcp")  # Linux/Unix 系システムでポートを解放
+            # Windows の場合
+            # os.system(f"netstat -ano | findstr :{port} | for /f %P in ('findstr LISTENING') do taskkill /F /PID %P")
+
+
 def start_server():
+    # ポートを強制解放
+    force_release_port(PORT)
+
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((HOST, PORT))
     server_socket.listen(5)
