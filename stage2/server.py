@@ -24,7 +24,7 @@ def handle_client(client_socket):
                 break
 
             # メッセージを解析
-            if data.startswith("CREATE"):
+            if data.startswith("C"):
                 _, room_name = data.split()
                 if room_name not in chat_rooms:
                     chat_rooms[room_name] = []
@@ -33,7 +33,7 @@ def handle_client(client_socket):
                     client_socket.send(f"チャットルーム '{room_name}' を作成しました。\n".encode('utf-8'))
                 else:
                     client_socket.send(f"チャットルーム '{room_name}' はすでに存在します。\n".encode('utf-8'))
-            elif data.startswith("JOIN"):
+            elif data.startswith("J"):
                 _, room_name = data.split()
                 if room_name in chat_rooms:
                     chat_rooms[room_name].append(client_socket)
@@ -42,7 +42,7 @@ def handle_client(client_socket):
                 else:
                     client_socket.send(f"チャットルーム '{room_name}' は存在しません。\n".encode('utf-8'))
             else:
-                client_socket.send("無効なコマンドです。CREATE <room_name> または JOIN <room_name> を使用してください。\n".encode('utf-8'))
+                client_socket.send("無効なコマンドです。CREATE <room_name> または J <room_name> を使用してください。\n".encode('utf-8'))
     except Exception as e:
         print(f"エラー: {e}")
     finally:
@@ -82,7 +82,7 @@ def start_server():
         while True:
             client_socket, address = server_socket.accept()
             print(f"新しいクライアント接続: {address}")
-            client_socket.send("CREATE <room_name> または JOIN <room_name> を入力してください。\n".encode('utf-8'))
+            client_socket.send("C <room_name> または J <room_name> を入力してください。\n".encode('utf-8'))
             threading.Thread(target=handle_client, args=(client_socket,)).start()
     except KeyboardInterrupt:
         print("\nサーバーをシャットダウンしています...")
