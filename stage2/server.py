@@ -54,6 +54,7 @@ while True:
         # クライアントからのデータ受信
         data, address = sock.recvfrom(4096)
         print(f'\nメッセージを受信 {len(data)} バイト: {address}')
+        print(f'受信データ: {data}')
 
         # データ形式の検証
         if len(data) < 2:
