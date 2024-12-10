@@ -15,8 +15,11 @@ def handle_client(client_socket):
     try:
         while True:
             # チャットルームとクライアントを全てprint
+            print("")
+            print("========================================")
             print("現在のチャットルーム:", {room: [c.getpeername() for c in clients if clients[c][1] == room] for room in chat_rooms})
             print("現在のクライアント:", {c.getpeername(): info for c, info in clients.items()})
+            print("========================================")
             
             # クライアントからメッセージを受信
             data = client_socket.recv(1024).decode('utf-8').strip()
