@@ -1,32 +1,42 @@
 import socket
+import threading
 
 # サーバーの設定
 HOST = '127.0.0.1'
 PORT = 9001
 
-
-def start_client():
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        client_socket.connect((HOST, PORT))
-        print(f"サーバーに接続しました: {HOST}:{PORT}")
-
-        while True:
-            # サーバーからのメッセージを受信
-            response = client_socket.recv(1024).decode('utf-8')
-            if not response:
-                print("サーバーから切断されました。")
+def receive_messages(sock):
+    while True:
+        try:
+            message = sock.recv(1024).decode('utf-8')
+            if not message:
                 break
-            print(response.strip())
+            print(message)
+        except:
+            break
 
-            # ユーザー入力を送信
-            message = input(">> ").strip()
-            client_socket.send(message.encode('utf-8'))
-    except Exception as e:
-        print(f"エラー: {e}")
+def main():
+    username = input("ユーザー名を入力してください: ")
+    room_name = input("チャットルーム名を入力してください: ")
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((HOST, PORT))
+
+    # チャットルームに参加
+    sock.send(f"C {room_name} {username}".encode('utf-8'))
+
+    threading.Thread(target=receive_messages, args=(sock,), daemon=True).start()
+
+    try:
+        while True:
+            message = input()
+            if message.lower() == 'exit':
+                break
+            sock.send(message.encode('utf-8'))
+    except KeyboardInterrupt:
+        pass
     finally:
-        client_socket.close()
-
+        sock.close()
 
 if __name__ == "__main__":
-    start_client()
+    main()

@@ -1,15 +1,13 @@
 import socket
 import threading
-import os
 
 # サーバーの設定
 HOST = '127.0.0.1'
 PORT = 9001
 
 # チャットルームの管理
-chat_rooms = {}  # {"room_name": [client_sockets]}
-clients = {}  # {client_socket: (address, room_name)}
-
+chat_rooms = {}  # {"room_name": [usernames]}
+clients = {}  # {client_socket: (address, username, room_name)}
 
 def handle_client(client_socket):
     try:
@@ -17,7 +15,7 @@ def handle_client(client_socket):
             # チャットルームとクライアントを全てprint
             print("")
             print("========================================")
-            print("現在のチャットルーム:", {room: [c.getpeername() for c in clients if clients[c][1] == room] for room in chat_rooms})
+            print("現在のチャットルーム:", {room: chat_rooms[room] for room in chat_rooms})
             print("現在のクライアント:", {c.getpeername(): info for c, info in clients.items()})
             print("========================================")
             
@@ -28,32 +26,39 @@ def handle_client(client_socket):
 
             # メッセージを解析
             if data.startswith("C"):
-                _, room_name = data.split()
+                _, room_name, username = data.split()
                 if room_name not in chat_rooms:
                     chat_rooms[room_name] = []
-                    chat_rooms[room_name].append(client_socket)
-                    clients[client_socket] = (client_socket.getpeername(), room_name)
-                    client_socket.send(f"チャットルーム '{room_name}' を作成しました。\n".encode('utf-8'))
+                if username not in chat_rooms[room_name]:
+                    chat_rooms[room_name].append(username)
+                    clients[client_socket] = (client_socket.getpeername(), username, room_name)
+                    client_socket.send(f"チャットルーム '{room_name}' にユーザー '{username}' を追加しました。\n".encode('utf-8'))
                 else:
-                    client_socket.send(f"チャットルーム '{room_name}' はすでに存在します。\n".encode('utf-8'))
+                    client_socket.send(f"ユーザー '{username}' はすでにチャットルーム '{room_name}' に存在します。\n".encode('utf-8'))
             elif data.startswith("J"):
-                _, room_name = data.split()
-                if room_name in chat_rooms:
-                    chat_rooms[room_name].append(client_socket)
-                    clients[client_socket] = (client_socket.getpeername(), room_name)
+                _, room_name, username = data.split()
+                if room_name in chat_rooms and username in chat_rooms[room_name]:
+                    clients[client_socket] = (client_socket.getpeername(), username, room_name)
                     client_socket.send(f"チャットルーム '{room_name}' に参加しました。\n".encode('utf-8'))
                 else:
-                    client_socket.send(f"チャットルーム '{room_name}' は存在しません。\n".encode('utf-8'))
+                    client_socket.send(f"チャットルーム '{room_name}' またはユーザー '{username}' が存在しません。\n".encode('utf-8'))
             else:
-                client_socket.send("無効なコマンドです。CREATE <room_name> または J <room_name> を使用してください。\n".encode('utf-8'))
+                # メッセージをチャットルームの他のクライアントに送信
+                username = clients[client_socket][1]
+                room_name = clients[client_socket][2]
+                message = f"{username}: {data}"
+                for client, info in clients.items():
+                    if info[2] == room_name and client != client_socket:
+                        client.send(message.encode('utf-8'))
     except Exception as e:
         print(f"エラー: {e}")
     finally:
         # クライアントが切断された場合の処理
         print(f"クライアント切断: {client_socket.getpeername()}")
         if client_socket in clients:
-            room_name = clients[client_socket][1]
-            chat_rooms[room_name].remove(client_socket)
+            room_name = clients[client_socket][2]
+            username = clients[client_socket][1]
+            chat_rooms[room_name].remove(username)
             if not chat_rooms[room_name]:  # チャットルームが空なら削除
                 del chat_rooms[room_name]
             del clients[client_socket]
@@ -84,14 +89,12 @@ def start_server():
     try:
         while True:
             client_socket, address = server_socket.accept()
-            print(f"新しいクライアント接続: {address}")
-            client_socket.send("C <room_name> または J <room_name> を入力してください。\n".encode('utf-8'))
+            print(f"クライアント接続: {address}")
             threading.Thread(target=handle_client, args=(client_socket,)).start()
     except KeyboardInterrupt:
         print("\nサーバーをシャットダウンしています...")
     finally:
         server_socket.close()
-
 
 if __name__ == "__main__":
     start_server()
