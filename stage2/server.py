@@ -64,7 +64,7 @@ def force_release_port(port):
             temp_socket.bind((HOST, port))
         except OSError:
             print(f"ポート {port} を使用中の接続を解放します...")
-            os.system(f"fuser -k {port}/tcp")  # Linux/Unix 系システムでポートを解放
+            os.system(f"lsof -i tcp:{port} | grep LISTEN | awk '{{print $2}}' | xargs kill")
             # Windows の場合
             # os.system(f"netstat -ano | findstr :{port} | for /f %P in ('findstr LISTENING') do taskkill /F /PID %P")
 
