@@ -17,13 +17,19 @@ def receive_messages(sock):
 
 def main():
     username = input("ユーザー名を入力してください: ")
-    room_name = input("チャットルーム名を入力してください: ")
+    choice = input("新しいチャットルームを作成しますか？ (y/n): ")
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((HOST, PORT))
 
-    # チャットルームに参加
-    sock.send(f"C {room_name} {username}".encode('utf-8'))
+    if choice.lower() == 'y':
+        # 新しいチャットルームを作成
+        room_name = input("新しいチャットルーム名を入力してください: ")
+        sock.send(f"C {room_name} {username}".encode('utf-8'))
+    else:
+        # 既存のチャットルームに参加
+        token = input("トークンを入力してください: ")
+        sock.send(f"J {token} {username}".encode('utf-8'))
 
     threading.Thread(target=receive_messages, args=(sock,), daemon=True).start()
 

@@ -36,12 +36,17 @@ def handle_client(client_socket):
                 else:
                     client_socket.send(f"ユーザー '{username}' はすでにチャットルーム '{room_name}' に存在します。\n".encode('utf-8'))
             elif data.startswith("J"):
-                _, room_name, username = data.split()
-                if room_name in chat_rooms and username in chat_rooms[room_name]:
-                    clients[client_socket] = (client_socket.getpeername(), username, room_name)
-                    client_socket.send(f"チャットルーム '{room_name}' に参加しました。\n".encode('utf-8'))
+                _, token, username = data.split()
+                if token in chat_rooms:
+                    room_name = chat_rooms[token][0]
+                    if username not in chat_rooms[token]:
+                        chat_rooms[token].append(username)
+                        clients[client_socket] = (client_socket.getpeername(), username, room_name)
+                        client_socket.send(f"チャットルーム '{room_name}' に参加しました。\n".encode('utf-8'))
+                    else:
+                        client_socket.send(f"ユーザー '{username}' はすでにチャットルーム '{room_name}' に存在します。\n".encode('utf-8'))
                 else:
-                    client_socket.send(f"チャットルーム '{room_name}' またはユーザー '{username}' が存在しません。\n".encode('utf-8'))
+                    client_socket.send(f"無効なトークンです。\n".encode('utf-8'))
             else:
                 # メッセージをチャットルームの他のクライアントに送信
                 username = clients[client_socket][1]
@@ -64,7 +69,11 @@ def handle_client(client_socket):
             del clients[client_socket]
         client_socket.close()
 
-
+def create_chat_room():
+    token = str(time.time())
+    room_name = f'room_{len(chat_rooms)}'
+    chat_rooms[token] = [room_name]
+    return token, room_name
 def force_release_port(port):
     """ポートを強制的に解放"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as temp_socket:
