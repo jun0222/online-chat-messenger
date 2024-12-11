@@ -1,5 +1,6 @@
 import socket
 import threading
+import struct
 import time
 import os
 
@@ -22,35 +23,46 @@ def handle_client(client_socket):
             print("========================================")
             
             # クライアントからメッセージを受信
-            data = client_socket.recv(1024).decode('utf-8').strip()
-            if not data:
+            header = client_socket.recv(32)
+            if not header:
                 break
 
-            # メッセージを解析
-            if data.startswith("C"):
-                _, room_name, username = data.split()
+            room_name_size, operation, state, operation_payload_size = struct.unpack('!BBB29s', header)
+            room_name_size = int(room_name_size)
+            operation_payload_size = int(operation_payload_size.strip(b'\x00').decode('utf-8'))
+
+            body = client_socket.recv(room_name_size + operation_payload_size)
+            room_name = body[:room_name_size].decode('utf-8')
+            payload = body[room_name_size:].decode('utf-8')
+
+            if operation == 1:  # チャットルーム作成
+                username = payload
                 token, room_name = create_chat_room(room_name)
                 chat_rooms[token][1].append(username)
                 clients[client_socket] = (client_socket.getpeername(), username, token)
-                client_socket.send(f"チャットルーム '{room_name}' を作成しました。トークン: {token}\n".encode('utf-8'))
-            elif data.startswith("J"):
-                _, token, username = data.split()
+                response = f"チャットルーム '{room_name}' を作成しました。トークン: {token}\n"
+                client_socket.send(response.encode('utf-8'))
+            elif operation == 2:  # チャットルーム参加
+                token, username = payload.split()
                 if token in chat_rooms:
                     room_name = chat_rooms[token][0]
                     if username not in chat_rooms[token][1]:
                         chat_rooms[token][1].append(username)
                         clients[client_socket] = (client_socket.getpeername(), username, token)
-                        client_socket.send(f"チャットルーム '{room_name}' に参加しました。\n".encode('utf-8'))
+                        response = f"チャットルーム '{room_name}' に参加しました。\n"
+                        client_socket.send(response.encode('utf-8'))
                     else:
-                        client_socket.send(f"ユーザー '{username}' はすでにチャットルーム '{room_name}' に存在します。\n".encode('utf-8'))
+                        response = f"ユーザー '{username}' はすでにチャットルーム '{room_name}' に存在します。\n"
+                        client_socket.send(response.encode('utf-8'))
                 else:
-                    client_socket.send(f"無効なトークンです。\n".encode('utf-8'))
+                    response = f"無効なトークンです。\n"
+                    client_socket.send(response.encode('utf-8'))
             else:
                 # メッセージをチャットルームの他のクライアントに送信
                 username = clients[client_socket][1]
                 token = clients[client_socket][2]
                 room_name = chat_rooms[token][0]
-                message = f"{username}: {data}"
+                message = f"{username}: {payload}"
                 for client, info in clients.items():
                     if info[2] == token and client != client_socket:
                         client.send(message.encode('utf-8'))
@@ -72,6 +84,7 @@ def create_chat_room(room_name):
     token = str(time.time())
     chat_rooms[token] = [room_name, []]
     return token, room_name
+
 def force_release_port(port):
     """ポートを強制的に解放"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as temp_socket:
@@ -82,7 +95,6 @@ def force_release_port(port):
             os.system(f"lsof -i tcp:{port} | grep LISTEN | awk '{{print $2}}' | xargs kill")
             # Windows の場合
             # os.system(f"netstat -ano | findstr :{port} | for /f %P in ('findstr LISTENING') do taskkill /F /PID %P")
-
 
 def start_server():
     # ポートを強制解放
