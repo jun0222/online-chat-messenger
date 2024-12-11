@@ -1,13 +1,15 @@
 import socket
 import threading
+import time
+import os
 
 # サーバーの設定
 HOST = '127.0.0.1'
 PORT = 9001
 
 # チャットルームの管理
-chat_rooms = {}  # {"room_name": [usernames]}
-clients = {}  # {client_socket: (address, username, room_name)}
+chat_rooms = {}  # {"token": [room_name, [usernames]]}
+clients = {}  # {client_socket: (address, username, token)}
 
 def handle_client(client_socket):
     try:
@@ -15,7 +17,7 @@ def handle_client(client_socket):
             # チャットルームとクライアントを全てprint
             print("")
             print("========================================")
-            print("現在のチャットルーム:", {room: chat_rooms[room] for room in chat_rooms})
+            print("現在のチャットルーム:", {token: chat_rooms[token][0] for token in chat_rooms})
             print("現在のクライアント:", {c.getpeername(): info for c, info in clients.items()})
             print("========================================")
             
@@ -27,21 +29,17 @@ def handle_client(client_socket):
             # メッセージを解析
             if data.startswith("C"):
                 _, room_name, username = data.split()
-                if room_name not in chat_rooms:
-                    chat_rooms[room_name] = []
-                if username not in chat_rooms[room_name]:
-                    chat_rooms[room_name].append(username)
-                    clients[client_socket] = (client_socket.getpeername(), username, room_name)
-                    client_socket.send(f"チャットルーム '{room_name}' にユーザー '{username}' を追加しました。\n".encode('utf-8'))
-                else:
-                    client_socket.send(f"ユーザー '{username}' はすでにチャットルーム '{room_name}' に存在します。\n".encode('utf-8'))
+                token, room_name = create_chat_room(room_name)
+                chat_rooms[token][1].append(username)
+                clients[client_socket] = (client_socket.getpeername(), username, token)
+                client_socket.send(f"チャットルーム '{room_name}' を作成しました。トークン: {token}\n".encode('utf-8'))
             elif data.startswith("J"):
                 _, token, username = data.split()
                 if token in chat_rooms:
                     room_name = chat_rooms[token][0]
-                    if username not in chat_rooms[token]:
-                        chat_rooms[token].append(username)
-                        clients[client_socket] = (client_socket.getpeername(), username, room_name)
+                    if username not in chat_rooms[token][1]:
+                        chat_rooms[token][1].append(username)
+                        clients[client_socket] = (client_socket.getpeername(), username, token)
                         client_socket.send(f"チャットルーム '{room_name}' に参加しました。\n".encode('utf-8'))
                     else:
                         client_socket.send(f"ユーザー '{username}' はすでにチャットルーム '{room_name}' に存在します。\n".encode('utf-8'))
@@ -50,10 +48,11 @@ def handle_client(client_socket):
             else:
                 # メッセージをチャットルームの他のクライアントに送信
                 username = clients[client_socket][1]
-                room_name = clients[client_socket][2]
+                token = clients[client_socket][2]
+                room_name = chat_rooms[token][0]
                 message = f"{username}: {data}"
                 for client, info in clients.items():
-                    if info[2] == room_name and client != client_socket:
+                    if info[2] == token and client != client_socket:
                         client.send(message.encode('utf-8'))
     except Exception as e:
         print(f"エラー: {e}")
@@ -61,18 +60,17 @@ def handle_client(client_socket):
         # クライアントが切断された場合の処理
         print(f"クライアント切断: {client_socket.getpeername()}")
         if client_socket in clients:
-            room_name = clients[client_socket][2]
+            token = clients[client_socket][2]
             username = clients[client_socket][1]
-            chat_rooms[room_name].remove(username)
-            if not chat_rooms[room_name]:  # チャットルームが空なら削除
-                del chat_rooms[room_name]
+            chat_rooms[token][1].remove(username)
+            if not chat_rooms[token][1]:  # チャットルームが空なら削除
+                del chat_rooms[token]
             del clients[client_socket]
         client_socket.close()
 
-def create_chat_room():
+def create_chat_room(room_name):
     token = str(time.time())
-    room_name = f'room_{len(chat_rooms)}'
-    chat_rooms[token] = [room_name]
+    chat_rooms[token] = [room_name, []]
     return token, room_name
 def force_release_port(port):
     """ポートを強制的に解放"""
