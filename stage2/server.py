@@ -35,6 +35,13 @@ def handle_client(client_socket):
             room_name = body[:room_name_size].decode('utf-8')
             payload = body[room_name_size:].decode('utf-8')
 
+            # request header && body print
+            print('')
+            print("========================================")
+            print("Request Header:", header)
+            print("Request Body:", body)
+            print("========================================")
+
             if operation == 1:  # チャットルーム作成
                 username = payload
                 token, room_name = create_chat_room(room_name)
