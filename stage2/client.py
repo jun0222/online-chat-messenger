@@ -9,11 +9,30 @@ PORT = 9001
 def receive_messages(sock):
     while True:
         try:
-            message = sock.recv(1024).decode('utf-8')
-            if not message:
+            # ヘッダーを受信
+            header = sock.recv(32)
+            if not header:
                 break
-            print(message)
-        except:
+
+            # ヘッダーをデコード
+            room_name_size, operation, state, operation_payload_size = struct.unpack('!BBB29s', header)
+            room_name_size = int(room_name_size)
+            operation_payload_size = int(operation_payload_size.strip(b'\x00').decode('utf-8'))
+
+            # ボディを受信
+            body = sock.recv(room_name_size + operation_payload_size)
+            room_name = body[:room_name_size].decode('utf-8')
+            payload = body[room_name_size:].decode('utf-8')
+
+            # メッセージの表示
+            if operation == 1 and state == 1:
+                print(f"新しいチャットルーム '{room_name}' が作成されました。トークン: {payload}")
+            elif operation == 1 and state == 2:
+                print(f"チャットルーム '{room_name}' に追加のトークン: {payload}")
+            else:
+                print(f"チャットルーム '{room_name}': {payload}")
+        except Exception as e:
+            print(f"受信エラー: {e}")
             break
 
 def main():
