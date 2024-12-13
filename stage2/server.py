@@ -41,14 +41,17 @@ def handle_client(client_socket):
             print("Request Header:", header)
             print("Request Body:", body)
             print("========================================")
-
-            if operation == 1:  # チャットルーム作成
+            if operation == 1 and state == 0:  # 新しいチャットルーム作成リクエスト
                 username = payload
                 token, room_name = create_chat_room(room_name)
                 chat_rooms[token][1].append(username)
                 clients[client_socket] = (client_socket.getpeername(), username, token)
-                response = f"チャットルーム '{room_name}' を作成しました。トークン: {token}\n"
-                client_socket.send(response.encode('utf-8'))
+                response_header = struct.pack('!BBB29s', room_name_size, 1, 1, str(len(token)).encode('utf-8').ljust(29, b'\x00'))
+                response_body = room_name.encode('utf-8') + token.encode('utf-8')
+                client_socket.send(response_header + response_body)
+                response_header = struct.pack('!BBB29s', room_name_size, 1, 2, str(len(token)).encode('utf-8').ljust(29, b'\x00'))
+                response_body = room_name.encode('utf-8') + token.encode('utf-8')
+                client_socket.send(response_header + response_body)
             elif operation == 2:  # チャットルーム参加
                 token, username = payload.split()
                 if token in chat_rooms:
