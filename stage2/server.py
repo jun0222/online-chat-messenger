@@ -59,7 +59,7 @@ def handle_client(client_socket):
                         if token not in data["users"]:
                             chat_rooms[room]["users"][token] = username
                             clients[client_socket] = (client_socket.getpeername(), username, token)
-                            response = f"join at '{room}'"
+                            response = f"チャットルーム '{room}' に参加しました\n"
                             client_socket.send(response.encode('utf-8'))
                         else:
                             response = f"ユーザー '{username}' はすでにチャットルーム '{room}' に存在します\n"
