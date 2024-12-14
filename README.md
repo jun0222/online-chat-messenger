@@ -1,3 +1,13 @@
+## クライアント側で文字化けするエラー
+
+以下のログをサーバー側の送信箇所に仕込み、  
+中身のデータが期待するものか確認すれば良い。
+
+```py
+print(f"Sending header: room_name_size={len(room)}, operation=2, state=0, payload_size={payload_size}")
+print(f"Sending body: room_name={room}, payload={response_message}")
+```
+
 ## サーバーを終了するとき
 
 まずクライアントを落としてからサーバーを落とすこと。  
