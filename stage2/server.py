@@ -21,7 +21,7 @@ def handle_client(client_socket):
             print("現在のチャットルーム:", {room: chat_rooms[room]["tokens"] for room in chat_rooms})
             print("現在のクライアント:", {c.getpeername(): info for c, info in clients.items()})
             print("========================================")
-            
+
             # クライアントからのメッセージを受信
             header = client_socket.recv(32)
             if not header:
@@ -59,8 +59,25 @@ def handle_client(client_socket):
                         if token not in data["users"]:
                             chat_rooms[room]["users"][token] = username
                             clients[client_socket] = (client_socket.getpeername(), username, token)
-                            response = f"チャットルーム '{room}' に参加しました\n"
-                            client_socket.send(response.encode('utf-8'))
+                            response_message = f"チャットルーム '{room}' に参加しました"
+                            response_message_bytes = response_message.encode('utf-8')  # UTF-8でエンコード
+                            payload_size = len(response_message_bytes)
+
+                            response_header = struct.pack(
+                                '!BBB29s',
+                                len(room),
+                                2,
+                                0,
+                                str(payload_size).encode('utf-8').ljust(29, b'\x00')
+                            )
+                            response_body = struct.pack(
+                                f'!{len(room)}s{payload_size}s',
+                                room.encode('utf-8'),
+                                response_message_bytes
+                            )
+                            print(f"Sending header: room_name_size={len(room)}, operation=2, state=0, payload_size={payload_size}")
+                            print(f"Sending body: room_name={room}, payload={response_message}")
+                            client_socket.send(response_header + response_body)
                         else:
                             response = f"ユーザー '{username}' はすでにチャットルーム '{room}' に存在します\n"
                             client_socket.send(response.encode('utf-8'))
@@ -102,8 +119,7 @@ def create_chat_room(room_name, username):
     return tokens, room_name
 
 def force_release_port(port):
-    """ポートを強制的に解放
-    """
+    """ポートを強制的に解放"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as temp_socket:
         try:
             temp_socket.bind((HOST, port))

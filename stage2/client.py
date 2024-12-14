@@ -6,11 +6,21 @@ import struct
 HOST = '127.0.0.1'
 PORT = 9001
 
+# データを完全に受信するための関数
+def receive_all(sock, length):
+    data = b""
+    while len(data) < length:
+        packet = sock.recv(length - len(data))
+        if not packet:
+            break
+        data += packet
+    return data
+
 def receive_messages(sock):
     while True:
         try:
-            # ヘッダーを受信
-            header = sock.recv(32)
+            # ヘッダーを受信（32バイト固定）
+            header = receive_all(sock, 32)
             if not header:
                 break
 
@@ -19,8 +29,12 @@ def receive_messages(sock):
             room_name_size = int(room_name_size)
             operation_payload_size = int(operation_payload_size.strip(b'\x00').decode('utf-8'))
 
-            # ボディを受信
-            body = sock.recv(room_name_size + operation_payload_size)
+            # ボディを受信（期待するサイズを計算）
+            body = receive_all(sock, room_name_size + operation_payload_size)
+            if len(body) < room_name_size + operation_payload_size:
+                raise ValueError("受信データが不足しています")
+
+            # ボディを解析
             room_name = body[:room_name_size].decode('utf-8')
             payload = body[room_name_size:].decode('utf-8')
 
@@ -29,6 +43,8 @@ def receive_messages(sock):
                 print(f"新しいチャットルーム '{room_name}' が作成されました。トークン: {payload}")
             elif operation == 1 and state == 2:
                 print(f"チャットルーム '{room_name}' に追加のトークン: {payload}")
+            elif operation == 2 and state == 1:
+                print(payload)
             else:
                 print(f"チャットルーム '{room_name}': {payload}")
         except Exception as e:
