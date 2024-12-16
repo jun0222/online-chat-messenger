@@ -1,152 +1,145 @@
 import socket
 import threading
 import struct
-import time
-import os
 import uuid
 
 # サーバーの設定
 HOST = '127.0.0.1'
-PORT = 9001
+TCP_PORT = 9001
+UDP_PORT = 9002
 
 # チャットルームの管理
-chat_rooms = {}  # {"room_name": {"tokens": [token1, token2, ...], "users": {token1: username1, token2: username2, ...}}}
-clients = {}  # {client_socket: (address, username, token)}
+chat_rooms = {}  # {"room_name": {"tokens": [token1, ...], "users": {}, "udp_clients": []}}
 
-def handle_client(client_socket):
+def handle_tcp_client(client_socket):
     try:
         while True:
-            # チャットルームとクライアントを全てprint
-            print("\n========================================")
-            print("現在のチャットルーム:", {room: chat_rooms[room]["tokens"] for room in chat_rooms})
-            print("現在のクライアント:", {c.getpeername(): info for c, info in clients.items()})
-            print("========================================")
-
-            # クライアントからのメッセージを受信
-            header = client_socket.recv(32)
+            print(f"[handle_tcp_client] クライアント {client_socket.getpeername()} からデータ受信を待機中...")
+            header = receive_all(client_socket, 32)
             if not header:
+                print(f"[handle_tcp_client] クライアントが切断しました: {client_socket.getpeername()}")
                 break
 
-            # ヘッダーを解析
-            room_name_size, operation, state, operation_payload_size = struct.unpack('!BBB29s', header)
-            room_name_size = int(room_name_size)
-            operation_payload_size = int(operation_payload_size.strip(b'\x00').decode('utf-8'))
+            # ヘッダーのデコード
+            try:
+                room_name_size, operation, state, operation_payload_size = struct.unpack('!BBB29s', header)
+                room_name_size = int(room_name_size)
+                operation_payload_size = int(operation_payload_size.strip(b'\x00').decode('utf-8'))
+                print(f"[handle_tcp_client] 受信ヘッダー: room_name_size={room_name_size}, operation={operation}, state={state}, payload_size={operation_payload_size}")
+            except struct.error as e:
+                print(f"[handle_tcp_client] ヘッダー解析エラー: {e}")
+                break
 
-            # ボディを受信
-            body = client_socket.recv(room_name_size + operation_payload_size)
+            # ボディの受信
+            body = receive_all(client_socket, room_name_size + operation_payload_size)
+            if not body:
+                print("[handle_tcp_client] ボディ受信エラー: データが不足しています")
+                break
+
             room_name = body[:room_name_size].decode('utf-8')
             payload = body[room_name_size:].decode('utf-8')
 
-            if operation == 1 and state == 0:  # 新しいチャットルーム作成リクエスト
+            print(f"[handle_tcp_client] 受信データ: room_name='{room_name}', payload='{payload}'")
+
+            if operation == 1 and state == 0:  # 新しいチャットルーム作成
                 username = payload
-                tokens, room_name = create_chat_room(room_name, username)
-                clients[client_socket] = (client_socket.getpeername(), username, tokens[0])
+                tokens = [str(uuid.uuid4()) for _ in range(5)]  # トークンを生成
 
-                # チャットルーム作成のレスポンス
-                response_header = struct.pack('!BBB29s', room_name_size, 1, 1, str(len(tokens[0])).encode('utf-8').ljust(29, b'\x00'))
-                response_body = struct.pack(f'!{room_name_size}s{len(tokens[0])}s', room_name.encode('utf-8'), tokens[0].encode('utf-8'))
-                client_socket.send(response_header + response_body)
+                if room_name not in chat_rooms:
+                    chat_rooms[room_name] = {"tokens": tokens, "users": {}, "udp_clients": []}
+                chat_rooms[room_name]["users"][tokens[0]] = username
 
-                # 追加トークンを送信
-                for token in tokens[1:]:
-                    response_header = struct.pack('!BBB29s', room_name_size, 1, 2, str(len(token)).encode('utf-8').ljust(29, b'\x00'))
-                    response_body = struct.pack(f'!{room_name_size}s{len(token)}s', room_name.encode('utf-8'), token.encode('utf-8'))
-                    client_socket.send(response_header + response_body)
-            elif operation == 2:  # チャットルーム参加
-                token, username = payload.split()
-                for room, data in chat_rooms.items():
-                    if token in data["tokens"]:
-                        if token not in data["users"]:
-                            chat_rooms[room]["users"][token] = username
-                            clients[client_socket] = (client_socket.getpeername(), username, token)
-                            response_message = f"チャットルーム '{room}' に参加しました"
-                            response_message_bytes = response_message.encode('utf-8')  # UTF-8でエンコード
-                            payload_size = len(response_message_bytes)
+                print(f"[handle_tcp_client] チャットルーム '{room_name}' が作成されました。トークン: {tokens}")
 
-                            response_header = struct.pack(
-                                '!BBB29s',
-                                len(room),
-                                2,
-                                0,
-                                str(payload_size).encode('utf-8').ljust(29, b'\x00')
-                            )
-                            response_body = struct.pack(
-                                f'!{len(room)}s{payload_size}s',
-                                room.encode('utf-8'),
-                                response_message_bytes
-                            )
-                            print(f"Sending header: room_name_size={len(room)}, operation=2, state=0, payload_size={payload_size}")
-                            print(f"Sending body: room_name={room}, payload={response_message}")
-                            client_socket.send(response_header + response_body)
-                        else:
-                            response = f"ユーザー '{username}' はすでにチャットルーム '{room}' に存在します\n"
-                            client_socket.send(response.encode('utf-8'))
-                        break
-                else:
-                    response = "無効なトークンです\n"
-                    client_socket.send(response.encode('utf-8'))
-            else:
-                # メッセージをチャットルームの他のクライアントに送信
-                username = clients[client_socket][1]
-                token = clients[client_socket][2]
-                room_name = [room for room, data in chat_rooms.items() if token in data["tokens"]][0]
-                message = f"{username}: {payload}"
-                for client, info in clients.items():
-                    if info[2] in chat_rooms[room_name]["tokens"] and client != client_socket:
-                        client.send(message.encode('utf-8'))
+                # 各トークンをクライアントに送信
+                for token in tokens:
+                    try:
+                        response_payload = token
+                        response_header = struct.pack(
+                            '!BBB29s',
+                            len(room_name),
+                            1,
+                            2,
+                            str(len(response_payload)).encode('utf-8').ljust(29, b'\x00')
+                        )
+                        response_body = struct.pack(
+                            f'!{len(room_name)}s{len(response_payload)}s',
+                            room_name.encode('utf-8'),
+                            response_payload.encode('utf-8')
+                        )
+                        print(f"[handle_tcp_client] トークン送信: header={response_header}, body={response_body}")
+                        client_socket.send(response_header + response_body)
+                        print(f"[handle_tcp_client] トークンを送信しました: {response_payload}")
+                    except Exception as e:
+                        print(f"[handle_tcp_client] トークン送信エラー: {e}")
+
+            elif operation == 3 and state == 0:  # UDPポート情報の受信
+                try:
+                    udp_port = int(payload)
+                    udp_address = (client_socket.getpeername()[0], udp_port)
+                    if room_name in chat_rooms:
+                        chat_rooms[room_name]["udp_clients"].append(udp_address)
+                        print(f"[handle_tcp_client] UDP情報を登録: {udp_address}, room_name={room_name}")
+                        client_socket.send(f"UDP通信に切り替えます\n".encode('utf-8'))
+                    else:
+                        print(f"[handle_tcp_client] 無効なルーム名: {room_name}")
+                        client_socket.send("無効なルーム名です\n".encode('utf-8'))
+                except ValueError as e:
+                    print(f"[handle_tcp_client] UDP情報エラー: {e}")
+                    client_socket.send("エラー: 無効な形式のデータ\n".encode('utf-8'))
     except Exception as e:
-        print(f"エラー: {e}")
+        print(f"[handle_tcp_client] エラー: {e}")
     finally:
-        # クライアントが切断された場合の処理
-        print(f"クライアント切断: {client_socket.getpeername()}")
-        if client_socket in clients:
-            token = clients[client_socket][2]
-            username = clients[client_socket][1]
-            room_name = [room for room, data in chat_rooms.items() if token in data["tokens"]][0]
-            chat_rooms[room_name]["tokens"].remove(token)
-            del chat_rooms[room_name]["users"][token]
-            if not chat_rooms[room_name]["tokens"]:  # チャットルームが空なら削除
-                del chat_rooms[room_name]
-            del clients[client_socket]
+        print(f"[handle_tcp_client] クライアント接続終了: {client_socket.getpeername()}")
         client_socket.close()
 
-def create_chat_room(room_name, username):
-    tokens = [str(uuid.uuid4()) for _ in range(5)]
-    if room_name not in chat_rooms:
-        chat_rooms[room_name] = {"tokens": [], "users": {}}
-    chat_rooms[room_name]["tokens"].extend(tokens)
-    chat_rooms[room_name]["users"][tokens[0]] = username
-    return tokens, room_name
+def udp_chat_server():
+    udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_sock.bind((HOST, UDP_PORT))
+    print(f"[udp_chat_server] UDPサーバーが起動しました: {HOST}:{UDP_PORT}")
 
-def force_release_port(port):
-    """ポートを強制的に解放"""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as temp_socket:
+    while True:
         try:
-            temp_socket.bind((HOST, port))
-        except OSError:
-            print(f"ポート {port} を使用中の接続を解放します...")
-            os.system(f"lsof -i tcp:{port} | grep LISTEN | awk '{{print $2}}' | xargs kill")
-            # Windows の場合
-            # os.system(f"netstat -ano | findstr :{port} | for /f %P in ('findstr LISTENING') do taskkill /F /PID %P")
+            data, addr = udp_sock.recvfrom(1024)
+            message = data.decode('utf-8')
+            print(f"[udp_chat_server] 受信データ: {message} from {addr}")
+
+            # UDPクライアントリストを検索してメッセージをブロードキャスト
+            for room_name, room_data in chat_rooms.items():
+                if addr in room_data["udp_clients"]:
+                    print(f"[udp_chat_server] ルーム '{room_name}' でメッセージ受信: {message}")
+                    for client in room_data["udp_clients"]:
+                        if client != addr:  # 自分以外にブロードキャスト
+                            udp_sock.sendto(message.encode('utf-8'), client)
+        except Exception as e:
+            print(f"[udp_chat_server] エラー: {e}")
+
+def receive_all(sock, length):
+    data = b""
+    while len(data) < length:
+        packet = sock.recv(length - len(data))
+        if not packet:
+            break
+        data += packet
+    return data
 
 def start_server():
-    # ポートを強制解放
-    force_release_port(PORT)
+    tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp_sock.bind((HOST, TCP_PORT))
+    tcp_sock.listen(5)
+    print(f"[start_server] TCPサーバーが起動しました: {HOST}:{TCP_PORT}")
 
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((HOST, PORT))
-    server_socket.listen(5)
-    print(f"サーバーが起動しました。{HOST}:{PORT}")
+    threading.Thread(target=udp_chat_server, daemon=True).start()
 
     try:
         while True:
-            client_socket, address = server_socket.accept()
-            print(f"クライアント接続: {address}")
-            threading.Thread(target=handle_client, args=(client_socket,)).start()
+            client_socket, address = tcp_sock.accept()
+            print(f"[start_server] 新しいクライアント接続: {address}")
+            threading.Thread(target=handle_tcp_client, args=(client_socket,), daemon=True).start()
     except KeyboardInterrupt:
-        print("\nサーバーをシャットダウンしています...")
+        print("\n[start_server] サーバーをシャットダウンしています...")
     finally:
-        server_socket.close()
+        tcp_sock.close()
 
 if __name__ == "__main__":
     start_server()
