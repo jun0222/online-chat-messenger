@@ -2,11 +2,15 @@ import socket
 import threading
 import struct
 
+# サーバーの設定
 HOST = '127.0.0.1'
 TCP_PORT = 9001
 UDP_PORT = 9002
 
 def receive_all(sock, length):
+    """
+    指定されたバイト数を完全に受信するヘルパー関数
+    """
     data = b""
     while len(data) < length:
         packet = sock.recv(length - len(data))
@@ -16,8 +20,12 @@ def receive_all(sock, length):
     return data
 
 def receive_messages(sock):
+    """
+    TCPメッセージを受信するスレッド
+    """
     while True:
         try:
+            # ヘッダーを受信
             header = receive_all(sock, 32)
             if not header:
                 break
@@ -26,6 +34,7 @@ def receive_messages(sock):
             room_name_size = int(room_name_size)
             operation_payload_size = int(operation_payload_size.strip(b'\x00').decode('utf-8'))
 
+            # ボディを受信
             body = receive_all(sock, room_name_size + operation_payload_size)
             room_name = body[:room_name_size].decode('utf-8')
             payload = body[room_name_size:].decode('utf-8')
@@ -39,12 +48,16 @@ def receive_messages(sock):
             break
 
 def udp_send(sock, server_address, room_name):
+    """
+    UDPメッセージを送信するスレッド
+    """
     while True:
         try:
             message = input("[UDP送信] > ")
             if message.lower() == 'exit':
                 break
 
+            # ヘッダーとボディをパケットにエンコード
             room_name_bytes = room_name.encode('utf-8')
             message_bytes = message.encode('utf-8')
             room_name_size = len(room_name_bytes)
@@ -57,6 +70,9 @@ def udp_send(sock, server_address, room_name):
             break
 
 def udp_receive(sock):
+    """
+    UDPメッセージを受信するスレッド
+    """
     while True:
         try:
             data, addr = sock.recvfrom(4096)
@@ -70,6 +86,9 @@ def udp_receive(sock):
             break
 
 def main():
+    """
+    クライアントのメイン処理
+    """
     username = input("ユーザー名を入力してください: ")
     choice = input("新しいチャットルームを作成しますか？ (y/n): ")
 
@@ -77,12 +96,14 @@ def main():
     tcp_sock.connect((HOST, TCP_PORT))
 
     if choice.lower() == 'y':
+        # 新しいチャットルーム作成
         room_name = input("新しいチャットルーム名を入力してください: ")
         payload = username
         header = struct.pack('!BBB29s', len(room_name), 1, 0, str(len(payload)).encode('utf-8').ljust(29, b'\x00'))
         body = room_name.encode('utf-8') + payload.encode('utf-8')
-        tcp_sock.sendall(header + body)  # 重要: sendallを使用
+        tcp_sock.sendall(header + body)
     else:
+        # 既存のチャットルームに参加
         room_name = input("参加するチャットルーム名を入力してください: ")
         token = input("トークンを入力してください: ")
         payload = f"{token} {username}"
@@ -90,16 +111,20 @@ def main():
         body = room_name.encode('utf-8') + payload.encode('utf-8')
         tcp_sock.sendall(header + body)
 
+    # TCPメッセージ受信スレッド開始
     threading.Thread(target=receive_messages, args=(tcp_sock,), daemon=True).start()
 
+    # UDPソケットを設定
     udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    udp_sock.bind(('0.0.0.0', 0))
+    udp_sock.bind(('0.0.0.0', 0))  # 任意のポートでバインド
     udp_port = udp_sock.getsockname()[1]
 
+    # UDPポートをサーバーに送信
     header = struct.pack('!BBB29s', len(room_name), 3, 0, str(len(str(udp_port))).encode('utf-8').ljust(29, b'\x00'))
     body = room_name.encode('utf-8') + str(udp_port).encode('utf-8')
     tcp_sock.sendall(header + body)
 
+    # UDP送信と受信スレッドを開始
     threading.Thread(target=udp_receive, args=(udp_sock,), daemon=True).start()
     udp_send(udp_sock, (HOST, UDP_PORT), room_name)
 
