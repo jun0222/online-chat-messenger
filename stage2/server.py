@@ -20,73 +20,33 @@ def handle_tcp_client(client_socket):
                 print(f"[handle_tcp_client] クライアントが切断しました: {client_socket.getpeername()}")
                 break
 
-            # ヘッダーのデコード
-            try:
-                room_name_size, operation, state, operation_payload_size = struct.unpack('!BBB29s', header)
-                room_name_size = int(room_name_size)
-                operation_payload_size = int(operation_payload_size.strip(b'\x00').decode('utf-8'))
-                print(f"[handle_tcp_client] 受信ヘッダー: room_name_size={room_name_size}, operation={operation}, state={state}, payload_size={operation_payload_size}")
-            except struct.error as e:
-                print(f"[handle_tcp_client] ヘッダー解析エラー: {e}")
-                break
-
-            # ボディの受信
+            room_name_size, operation, state, operation_payload_size = struct.unpack('!BBB29s', header)
+            room_name_size = int(room_name_size)
+            operation_payload_size = int(operation_payload_size.strip(b'\x00').decode('utf-8'))
             body = receive_all(client_socket, room_name_size + operation_payload_size)
-            if not body:
-                print("[handle_tcp_client] ボディ受信エラー: データが不足しています")
-                break
 
             room_name = body[:room_name_size].decode('utf-8')
             payload = body[room_name_size:].decode('utf-8')
 
-            print(f"[handle_tcp_client] 受信データ: room_name='{room_name}', payload='{payload}'")
-
             if operation == 1 and state == 0:  # 新しいチャットルーム作成
                 username = payload
-                tokens = [str(uuid.uuid4()) for _ in range(5)]  # トークンを生成
-
+                tokens = [str(uuid.uuid4()) for _ in range(5)]
                 if room_name not in chat_rooms:
                     chat_rooms[room_name] = {"tokens": tokens, "users": {}, "udp_clients": []}
                 chat_rooms[room_name]["users"][tokens[0]] = username
 
-                print(f"[handle_tcp_client] チャットルーム '{room_name}' が作成されました。トークン: {tokens}")
-
-                # 各トークンをクライアントに送信
                 for token in tokens:
-                    try:
-                        response_payload = token
-                        response_header = struct.pack(
-                            '!BBB29s',
-                            len(room_name),
-                            1,
-                            2,
-                            str(len(response_payload)).encode('utf-8').ljust(29, b'\x00')
-                        )
-                        response_body = struct.pack(
-                            f'!{len(room_name)}s{len(response_payload)}s',
-                            room_name.encode('utf-8'),
-                            response_payload.encode('utf-8')
-                        )
-                        print(f"[handle_tcp_client] トークン送信: header={response_header}, body={response_body}")
-                        client_socket.send(response_header + response_body)
-                        print(f"[handle_tcp_client] トークンを送信しました: {response_payload}")
-                    except Exception as e:
-                        print(f"[handle_tcp_client] トークン送信エラー: {e}")
+                    response_header = struct.pack('!BBB29s', len(room_name), 1, 2, str(len(token)).encode('utf-8').ljust(29, b'\x00'))
+                    response_body = room_name.encode('utf-8') + token.encode('utf-8')
+                    client_socket.sendall(response_header + response_body)  # 重要: sendallを使用
+                    print(f"[handle_tcp_client] トークンを送信しました: {token}")
 
-            elif operation == 3 and state == 0:  # UDPポート情報の受信
-                try:
-                    udp_port = int(payload)
-                    udp_address = (client_socket.getpeername()[0], udp_port)
-                    if room_name in chat_rooms:
-                        chat_rooms[room_name]["udp_clients"].append(udp_address)
-                        print(f"[handle_tcp_client] UDP情報を登録: {udp_address}, room_name={room_name}")
-                        client_socket.send(f"UDP通信に切り替えます\n".encode('utf-8'))
-                    else:
-                        print(f"[handle_tcp_client] 無効なルーム名: {room_name}")
-                        client_socket.send("無効なルーム名です\n".encode('utf-8'))
-                except ValueError as e:
-                    print(f"[handle_tcp_client] UDP情報エラー: {e}")
-                    client_socket.send("エラー: 無効な形式のデータ\n".encode('utf-8'))
+            elif operation == 3 and state == 0:  # UDPポート情報登録
+                udp_port = int(payload)
+                udp_address = (client_socket.getpeername()[0], udp_port)
+                if room_name in chat_rooms:
+                    chat_rooms[room_name]["udp_clients"].append(udp_address)
+                    print(f"[handle_tcp_client] UDP情報を登録: {udp_address}, room_name={room_name}")
     except Exception as e:
         print(f"[handle_tcp_client] エラー: {e}")
     finally:
@@ -100,17 +60,20 @@ def udp_chat_server():
 
     while True:
         try:
-            data, addr = udp_sock.recvfrom(1024)
-            message = data.decode('utf-8')
-            print(f"[udp_chat_server] 受信データ: {message} from {addr}")
+            data, addr = udp_sock.recvfrom(4096)
+            if not data:
+                continue
 
-            # UDPクライアントリストを検索してメッセージをブロードキャスト
-            for room_name, room_data in chat_rooms.items():
-                if addr in room_data["udp_clients"]:
-                    print(f"[udp_chat_server] ルーム '{room_name}' でメッセージ受信: {message}")
-                    for client in room_data["udp_clients"]:
-                        if client != addr:  # 自分以外にブロードキャスト
-                            udp_sock.sendto(message.encode('utf-8'), client)
+            room_name_size, message_size = struct.unpack('!BB', data[:2])
+            room_name = data[2:2 + room_name_size].decode('utf-8')
+            message = data[2 + room_name_size:2 + room_name_size + message_size].decode('utf-8')
+
+            print(f"[udp_chat_server] 受信データ: room_name='{room_name}', message='{message}' from {addr}")
+
+            if room_name in chat_rooms:
+                for client in chat_rooms[room_name]["udp_clients"]:
+                    if client != addr:
+                        udp_sock.sendto(data, client)
         except Exception as e:
             print(f"[udp_chat_server] エラー: {e}")
 
