@@ -1,3 +1,26 @@
+### 処理シーケンス
+
+```mermaid
+sequenceDiagram
+    autonumber
+    User->>Client: メッセージ入力
+    Client->>Backend: UDPソケット作成要求
+    Backend->>Backend: UDPソケット作成
+    Client->>Backend: 名前解決要求
+    Backend->>Backend: サーバーIPアドレス解決
+    Client->>Backend: メッセージ送信要求
+    Backend->>Backend: メッセージフォーマット
+    Backend->>Server: UDPメッセージ送信
+    Server->>Server: 不正データ検出
+    Server->>Server: クライアント状態更新
+    Server->>OtherClients: メッセージ中継
+    OtherClients->>Client: メッセージ受信
+    Client->>User: メッセージ表示
+    Server->>Server: タイムアウト確認
+    Note over Server: クライアント管理処理
+    Backend->>Backend: UDPソケットクローズ
+```
+
 ### 構成図
 
 ```mermaid
