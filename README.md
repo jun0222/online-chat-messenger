@@ -1,92 +1,9 @@
-### 処理シーケンス
+## online-chat-messenger
 
-```mermaid
-sequenceDiagram
-    autonumber
-    User->>Client: メッセージ入力
-    Client->>Backend: UDPソケット作成要求
-    Backend->>Backend: UDPソケット作成
-    Client->>Backend: 名前解決要求
-    Backend->>Backend: サーバーIPアドレス解決
-    Client->>Backend: メッセージ送信要求
-    Backend->>Backend: メッセージフォーマット
-    Backend->>Server: UDPメッセージ送信
-    Server->>Server: 不正データ検出
-    Server->>Server: クライアント状態更新
-    Server->>OtherClients: メッセージ中継
-    OtherClients->>Client: メッセージ受信
-    Client->>User: メッセージ表示
-    Server->>Server: タイムアウト確認
-    Note over Server: クライアント管理処理
-    Backend->>Backend: UDPソケットクローズ
-```
+### 概要
 
-### 構成図
-
-```mermaid
-graph TD
-    subgraph Client
-        A[ユーザー名入力画面] --> B{UDP接続リクエスト送信};
-        B --> C[メッセージ入力画面];
-        C --> D{UDPメッセージ送信};
-        D --> E[メッセージ表示画面];
-        E --> C;
-
-        F[チャットルーム作成/参加画面] --> G{TCP接続リクエスト送信};
-        G --> H[TCPメッセージ送受信画面];
-        H --> I{TCPメッセージ送信};
-        I --> H;
-        H --> J{メッセージ表示};
-        J --> H;
-    end
-
-    subgraph Server
-        K[UDPサーバー起動] --> L{UDPメッセージ受信};
-        L -- メッセージ転送 --> M{UDPメッセージ転送};
-        M --> L;
-        L -- 不正データ検出 --> N[不正データログ記録];
-        L -- タイムアウト検出 --> O[タイムアウトクライアント管理];
-
-        P[TCPサーバー起動] --> Q{TCP接続受信};
-        Q -- チャットルーム管理 --> R{チャットルーム作成/参加処理};
-        R -- クライアント通信ハンドリング --> S{TCPメッセージ受信};
-        S --> T{メッセージ転送};
-        T --> S;
-    end
-
-    subgraph External Services
-        EE[ネットワーク] -- UDPメッセージ --> L;
-        EE -- TCPメッセージ --> Q;
-        M --> EE;
-        T --> EE;
-    end
-
-    B --> K;
-    G --> P;
-
-    style A fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
-    style B fill:#ccf,stroke:#333,stroke-width:2px,color:#fff
-    style C fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
-    style D fill:#ccf,stroke:#333,stroke-width:2px,color:#fff
-    style E fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
-    style F fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
-    style G fill:#ccf,stroke:#333,stroke-width:2px,color:#fff
-    style H fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
-    style I fill:#ccf,stroke:#333,stroke-width:2px,color:#fff
-    style J fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
-    style K fill:#afa,stroke:#333,stroke-width:2px,color:#fff
-    style L fill:#aaf,stroke:#333,stroke-width:2px,color:#fff
-    style M fill:#afa,stroke:#333,stroke-width:2px,color:#fff
-    style N fill:#afa,stroke:#333,stroke-width:2px,color:#fff
-    style O fill:#afa,stroke:#333,stroke-width:2px,color:#fff
-    style P fill:#afa,stroke:#333,stroke-width:2px,color:#fff
-    style Q fill:#aaf,stroke:#333,stroke-width:2px,color:#fff
-    style R fill:#afa,stroke:#333,stroke-width:2px,color:#fff
-    style S fill:#aaf,stroke:#333,stroke-width:2px,color:#fff
-    style T fill:#afa,stroke:#333,stroke-width:2px,color:#fff
-    style EE fill:#aaf,stroke:#333,stroke-width:2px,color:#fff
-
-```
+このプロジェクトは、Python で作成されたオンラインチャットメッセンジャーシステムです。  
+TCP でチャットルームの作成、入室を行い、UDP でメッセージの送受信を行います。
 
 ### サーバーコード
 
@@ -261,6 +178,96 @@ tcp_sock.sendall(header + body)
 2. **メッセージリレーの効率化**: UDP クライアント間の通信を最適化。
 3. **エラー表示の改善**: デバッグログで問題箇所を明確化。
 
+### 処理シーケンス
+
+```mermaid
+sequenceDiagram
+    autonumber
+    User->>Client: メッセージ入力
+    Client->>Backend: UDPソケット作成要求
+    Backend->>Backend: UDPソケット作成
+    Client->>Backend: 名前解決要求
+    Backend->>Backend: サーバーIPアドレス解決
+    Client->>Backend: メッセージ送信要求
+    Backend->>Backend: メッセージフォーマット
+    Backend->>Server: UDPメッセージ送信
+    Server->>Server: 不正データ検出
+    Server->>Server: クライアント状態更新
+    Server->>OtherClients: メッセージ中継
+    OtherClients->>Client: メッセージ受信
+    Client->>User: メッセージ表示
+    Server->>Server: タイムアウト確認
+    Note over Server: クライアント管理処理
+    Backend->>Backend: UDPソケットクローズ
+```
+
+### 構成図
+
+```mermaid
+graph TD
+    subgraph Client
+        A[ユーザー名入力画面] --> B{UDP接続リクエスト送信};
+        B --> C[メッセージ入力画面];
+        C --> D{UDPメッセージ送信};
+        D --> E[メッセージ表示画面];
+        E --> C;
+
+        F[チャットルーム作成/参加画面] --> G{TCP接続リクエスト送信};
+        G --> H[TCPメッセージ送受信画面];
+        H --> I{TCPメッセージ送信};
+        I --> H;
+        H --> J{メッセージ表示};
+        J --> H;
+    end
+
+    subgraph Server
+        K[UDPサーバー起動] --> L{UDPメッセージ受信};
+        L -- メッセージ転送 --> M{UDPメッセージ転送};
+        M --> L;
+        L -- 不正データ検出 --> N[不正データログ記録];
+        L -- タイムアウト検出 --> O[タイムアウトクライアント管理];
+
+        P[TCPサーバー起動] --> Q{TCP接続受信};
+        Q -- チャットルーム管理 --> R{チャットルーム作成/参加処理};
+        R -- クライアント通信ハンドリング --> S{TCPメッセージ受信};
+        S --> T{メッセージ転送};
+        T --> S;
+    end
+
+    subgraph External Services
+        EE[ネットワーク] -- UDPメッセージ --> L;
+        EE -- TCPメッセージ --> Q;
+        M --> EE;
+        T --> EE;
+    end
+
+    B --> K;
+    G --> P;
+
+    style A fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
+    style B fill:#ccf,stroke:#333,stroke-width:2px,color:#fff
+    style C fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
+    style D fill:#ccf,stroke:#333,stroke-width:2px,color:#fff
+    style E fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
+    style F fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
+    style G fill:#ccf,stroke:#333,stroke-width:2px,color:#fff
+    style H fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
+    style I fill:#ccf,stroke:#333,stroke-width:2px,color:#fff
+    style J fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
+    style K fill:#afa,stroke:#333,stroke-width:2px,color:#fff
+    style L fill:#aaf,stroke:#333,stroke-width:2px,color:#fff
+    style M fill:#afa,stroke:#333,stroke-width:2px,color:#fff
+    style N fill:#afa,stroke:#333,stroke-width:2px,color:#fff
+    style O fill:#afa,stroke:#333,stroke-width:2px,color:#fff
+    style P fill:#afa,stroke:#333,stroke-width:2px,color:#fff
+    style Q fill:#aaf,stroke:#333,stroke-width:2px,color:#fff
+    style R fill:#afa,stroke:#333,stroke-width:2px,color:#fff
+    style S fill:#aaf,stroke:#333,stroke-width:2px,color:#fff
+    style T fill:#afa,stroke:#333,stroke-width:2px,color:#fff
+    style EE fill:#aaf,stroke:#333,stroke-width:2px,color:#fff
+
+```
+
 ---
 
 ## クライアント側で文字化けするエラー
@@ -323,4 +330,3 @@ b'hogea'
 2. **ボディ**
    - **RoomNameSize に基づくルーム名**: 最初の 4 バイト `hoge` は RoomNameSize に基づく値で問題なし (OK)
    - **OperationPayloadSize に基づくペイロード**: 残り 1 バイト `a`。最大 229 バイト以下なので問題なし (OK)
-
