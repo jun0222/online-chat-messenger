@@ -2,20 +2,20 @@
 
 ### 概要
 
-このプロジェクトは、Python で作成されたオンラインチャットメッセンジャーシステムです。  
-TCP でチャットルームの作成、入室を行い、UDP でメッセージの送受信を行います。
+このプロジェクトは、Python で作成されたオンラインチャットメッセンジャーシステムである。  
+TCP でチャットルームの作成、入室を行い、UDP でメッセージの送受信を行う。
 
 ### 利用フロー
 
 1. **チャットルームの作成**
-   - ユーザーが新しいチャットルームを作成します（TCP 通信）。
-   - サーバーはルームを初期化し、クライアントにトークンを送信します。
+   - ユーザーが新しいチャットルームを作成する（TCP 通信）。
+   - サーバーはルームを初期化し、クライアントにトークンを送信する。
 2. **他のユーザーの参加**
-   - 他のクライアントがトークンを使用してルームに参加します（TCP 通信）。
+   - 他のクライアントがトークンを使用してルームに参加する（TCP 通信）。
 3. **メッセージのやり取り**
-   - 各クライアントが UDP を使用してメッセージを送受信します。
+   - 各クライアントが UDP を使用してメッセージを送受信する。
 4. **切断時の処理**
-   - クライアントが切断すると、サーバーはトークンを削除し、ルームが空の場合は削除します。
+   - クライアントが切断すると、サーバーはトークンを削除し、ルームが空の場合は削除する。
 
 ### サーバーコード
 
@@ -90,10 +90,10 @@ elif operation == 3 and state == 0:  # UDPポート情報登録
 
 ```python
 if room_name and room_name in chat_rooms:
-    for tok, user in chat_rooms[room_name]["users"].items():
-        if user == client_socket.getpeername():
-            token = tok
-            break
+     for tok, user in chat_rooms[room_name]["users"].items():
+          if user == client_socket.getpeername():
+                token = tok
+                break
 ```
 
 - 切断したクライアントのトークンを削除。ルームが空になった場合はルーム自体を削除。
@@ -125,7 +125,7 @@ def receive_messages(sock):
 
 ```python
 if operation == 1 and state == 2:
-    print(f"[トークン受信] {payload}")
+     print(f"[トークン受信] {payload}")
 ```
 
 - チャットルーム作成時にトークンを受信して表示。
@@ -172,88 +172,88 @@ tcp_sock.sendall(header + body)
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    User->>Client: メッセージ入力
-    Client->>Backend: UDPソケット作成要求
-    Backend->>Backend: UDPソケット作成
-    Client->>Backend: 名前解決要求
-    Backend->>Backend: サーバーIPアドレス解決
-    Client->>Backend: メッセージ送信要求
-    Backend->>Backend: メッセージフォーマット
-    Backend->>Server: UDPメッセージ送信
-    Server->>Server: 不正データ検出
-    Server->>Server: クライアント状態更新
-    Server->>OtherClients: メッセージ中継
-    OtherClients->>Client: メッセージ受信
-    Client->>User: メッセージ表示
-    Server->>Server: タイムアウト確認
-    Note over Server: サーバー側でクライアントのアクティビティを監視
+     autonumber
+     User->>Client: メッセージ入力
+     Client->>Backend: UDPソケット作成要求
+     Backend->>Backend: UDPソケット作成
+     Client->>Backend: 名前解決要求
+     Backend->>Backend: サーバーIPアドレス解決
+     Client->>Backend: メッセージ送信要求
+     Backend->>Backend: メッセージフォーマット
+     Backend->>Server: UDPメッセージ送信
+     Server->>Server: 不正データ検出
+     Server->>Server: クライアント状態更新
+     Server->>OtherClients: メッセージ中継
+     OtherClients->>Client: メッセージ受信
+     Client->>User: メッセージ表示
+     Server->>Server: タイムアウト確認
+     Note over Server: サーバー側でクライアントのアクティビティを監視
 ```
 
 ### 構成図
 
 ```mermaid
 graph TD
-    subgraph Client
-        A[ユーザー名入力画面] --> B{UDP接続リクエスト送信};
-        B --> C[メッセージ入力画面];
-        C --> D{UDPメッセージ送信};
-        D --> E[メッセージ表示画面];
-        E --> C;
+     subgraph Client
+          A[ユーザー名入力画面] --> B{UDP接続リクエスト送信};
+          B --> C[メッセージ入力画面];
+          C --> D{UDPメッセージ送信};
+          D --> E[メッセージ表示画面];
+          E --> C;
 
-        F[チャットルーム作成/参加画面] --> G{TCP接続リクエスト送信};
-        G --> H[TCPメッセージ送受信画面];
-        H --> I{TCPメッセージ送信};
-        I --> H;
-        H --> J{メッセージ表示};
-        J --> H;
-    end
+          F[チャットルーム作成/参加画面] --> G{TCP接続リクエスト送信};
+          G --> H[TCPメッセージ送受信画面];
+          H --> I{TCPメッセージ送信};
+          I --> H;
+          H --> J{メッセージ表示};
+          J --> H;
+     end
 
-    subgraph Server
-        K[UDPサーバー起動] --> L{UDPメッセージ受信};
-        L -- メッセージ転送 --> M{UDPメッセージ転送};
-        M --> L;
-        L -- 不正データ検出 --> N[不正データログ記録];
-        L -- タイムアウト検出 --> O[タイムアウトクライアント管理];
+     subgraph Server
+          K[UDPサーバー起動] --> L{UDPメッセージ受信};
+          L -- メッセージ転送 --> M{UDPメッセージ転送};
+          M --> L;
+          L -- 不正データ検出 --> N[不正データログ記録];
+          L -- タイムアウト検出 --> O[タイムアウトクライアント管理];
 
-        P[TCPサーバー起動] --> Q{TCP接続受信};
-        Q -- チャットルーム管理 --> R{チャットルーム作成/参加処理};
-        R -- クライアント通信ハンドリング --> S{TCPメッセージ受信};
-        S --> T{メッセージ転送};
-        T --> S;
-    end
+          P[TCPサーバー起動] --> Q{TCP接続受信};
+          Q -- チャットルーム管理 --> R{チャットルーム作成/参加処理};
+          R -- クライアント通信ハンドリング --> S{TCPメッセージ受信};
+          S --> T{メッセージ転送};
+          T --> S;
+     end
 
-    subgraph External Services
-        EE[ネットワーク] -- UDPメッセージ --> L;
-        EE -- TCPメッセージ --> Q;
-        M --> EE;
-        T --> EE;
-    end
+     subgraph External Services
+          EE[ネットワーク] -- UDPメッセージ --> L;
+          EE -- TCPメッセージ --> Q;
+          M --> EE;
+          T --> EE;
+     end
 
-    B --> K;
-    G --> P;
+     B --> K;
+     G --> P;
 
-    style A fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
-    style B fill:#ccf,stroke:#333,stroke-width:2px,color:#fff
-    style C fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
-    style D fill:#ccf,stroke:#333,stroke-width:2px,color:#fff
-    style E fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
-    style F fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
-    style G fill:#ccf,stroke:#333,stroke-width:2px,color:#fff
-    style H fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
-    style I fill:#ccf,stroke:#333,stroke-width:2px,color:#fff
-    style J fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
-    style K fill:#afa,stroke:#333,stroke-width:2px,color:#fff
-    style L fill:#aaf,stroke:#333,stroke-width:2px,color:#fff
-    style M fill:#afa,stroke:#333,stroke-width:2px,color:#fff
-    style N fill:#afa,stroke:#333,stroke-width:2px,color:#fff
-    style O fill:#afa,stroke:#333,stroke-width:2px,color:#fff
-    style P fill:#afa,stroke:#333,stroke-width:2px,color:#fff
-    style Q fill:#aaf,stroke:#333,stroke-width:2px,color:#fff
-    style R fill:#afa,stroke:#333,stroke-width:2px,color:#fff
-    style S fill:#aaf,stroke:#333,stroke-width:2px,color:#fff
-    style T fill:#afa,stroke:#333,stroke-width:2px,color:#fff
-    style EE fill:#aaf,stroke:#333,stroke-width:2px,color:#fff
+     style A fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
+     style B fill:#ccf,stroke:#333,stroke-width:2px,color:#fff
+     style C fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
+     style D fill:#ccf,stroke:#333,stroke-width:2px,color:#fff
+     style E fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
+     style F fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
+     style G fill:#ccf,stroke:#333,stroke-width:2px,color:#fff
+     style H fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
+     style I fill:#ccf,stroke:#333,stroke-width:2px,color:#fff
+     style J fill:#f9f,stroke:#333,stroke-width:2px,color:#fff
+     style K fill:#afa,stroke:#333,stroke-width:2px,color:#fff
+     style L fill:#aaf,stroke:#333,stroke-width:2px,color:#fff
+     style M fill:#afa,stroke:#333,stroke-width:2px,color:#fff
+     style N fill:#afa,stroke:#333,stroke-width:2px,color:#fff
+     style O fill:#afa,stroke:#333,stroke-width:2px,color:#fff
+     style P fill:#afa,stroke:#333,stroke-width:2px,color:#fff
+     style Q fill:#aaf,stroke:#333,stroke-width:2px,color:#fff
+     style R fill:#afa,stroke:#333,stroke-width:2px,color:#fff
+     style S fill:#aaf,stroke:#333,stroke-width:2px,color:#fff
+     style T fill:#afa,stroke:#333,stroke-width:2px,color:#fff
+     style EE fill:#aaf,stroke:#333,stroke-width:2px,color:#fff
 
 ```
 
@@ -319,8 +319,8 @@ b'hogea'
 ### 制約条件とセキュリティ
 
 1. **UDP 通信の信頼性**
-   - UDP は信頼性のあるプロトコルではないため、パケットが失われる可能性があります。重要なメッセージには TCP を使用してください。
+   - UDP は信頼性のあるプロトコルではないため、パケットが失われる可能性がある。重要なメッセージには TCP を使用すること。
 2. **トークンの認証**
-   - トークンはサーバーで生成されますが、簡易なシステムのためトークンの改ざんに注意してください。
+   - トークンはサーバーで生成されるが、簡易なシステムのためトークンの改ざんに注意すること。
 3. **ローカル環境での使用**
-   - このシステムはローカルネットワーク内での使用を想定しています。インターネットでの使用時は追加のセキュリティ対策（認証、暗号化）を導入してください。
+   - このシステムはローカルネットワーク内での使用を想定している。インターネットでの使用時は追加のセキュリティ対策（認証、暗号化）を導入すること。
